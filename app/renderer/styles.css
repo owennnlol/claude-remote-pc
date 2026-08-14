@@ -117,6 +117,10 @@ body {
   color: #6a6760;
 }
 
+.screen-placeholder[hidden] {
+  display: none;
+}
+
 .placeholder-title {
   font-size: 15px;
   color: #a8a5a0;
