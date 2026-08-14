@@ -24,6 +24,25 @@ const btnSettingsCancel = document.getElementById('btn-settings-cancel');
 let config = null;
 let session = null; // { watch_url, control_url }
 
+screenView.addEventListener('did-fail-load', (e) => {
+  if (e.errorCode === -3) return; // ERR_ABORTED, fires on normal navigations away from about:blank
+  addMessage('system', `Live view failed to load (${e.errorCode}: ${e.errorDescription}). The tunnel may still be starting — it can take a few seconds after the session comes up.`);
+});
+
+screenView.addEventListener('did-finish-load', () => {
+  addMessage('system', 'Live view connected.');
+});
+
+screenView.addEventListener('crashed', () => {
+  addMessage('system', 'Live view crashed. Try Stop PC and Start PC again.');
+});
+
+marked.setOptions({ breaks: true });
+
+function renderMarkdown(text) {
+  return DOMPurify.sanitize(marked.parse(text));
+}
+
 function setStatus(state, text) {
   statusDot.className = 'dot ' + (state || '');
   statusText.textContent = text;
@@ -32,7 +51,11 @@ function setStatus(state, text) {
 function addMessage(role, text) {
   const div = document.createElement('div');
   div.className = 'msg msg-' + role;
-  div.textContent = text;
+  if (role === 'claude') {
+    div.innerHTML = renderMarkdown(text);
+  } else {
+    div.textContent = text;
+  }
   chatLog.appendChild(div);
   chatLog.scrollTop = chatLog.scrollHeight;
   return div;
@@ -149,10 +172,11 @@ async function sendCurrentPrompt() {
 
   try {
     const result = await window.api.sendPrompt(session.control_url, config.controlToken, task);
-    pending.textContent = result.stdout?.trim() || result.stderr?.trim() || '(no output)';
+    let text = result.stdout?.trim() || result.stderr?.trim() || '(no output)';
     if (result.timedOut) {
-      pending.textContent += '\n\n(task timed out after 10 minutes)';
+      text += '\n\n(task timed out after 10 minutes)';
     }
+    pending.innerHTML = renderMarkdown(text);
   } catch (err) {
     pending.textContent = `Error: ${err.message}`;
   }

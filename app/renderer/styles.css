@@ -156,7 +156,6 @@ body {
   font-size: 13px;
   line-height: 1.45;
   max-width: 92%;
-  white-space: pre-wrap;
   word-wrap: break-word;
 }
 
@@ -164,6 +163,7 @@ body {
   align-self: flex-end;
   background: #d97757;
   color: #1a1208;
+  white-space: pre-wrap;
 }
 
 .msg-claude {
@@ -172,11 +172,85 @@ body {
   color: #d8d5d0;
 }
 
+.msg-claude > *:first-child {
+  margin-top: 0;
+}
+
+.msg-claude > *:last-child {
+  margin-bottom: 0;
+}
+
+.msg-claude p {
+  margin: 0.5em 0;
+}
+
+.msg-claude h1,
+.msg-claude h2,
+.msg-claude h3,
+.msg-claude h4 {
+  margin: 0.7em 0 0.3em;
+  font-size: 1em;
+  font-weight: 700;
+  color: #f0eee9;
+}
+
+.msg-claude strong {
+  color: #f0eee9;
+  font-weight: 700;
+}
+
+.msg-claude em {
+  font-style: italic;
+}
+
+.msg-claude ul,
+.msg-claude ol {
+  margin: 0.4em 0;
+  padding-left: 1.3em;
+}
+
+.msg-claude li {
+  margin: 0.2em 0;
+}
+
+.msg-claude code {
+  background: #0e0e12;
+  border-radius: 4px;
+  padding: 0.1em 0.35em;
+  font-family: "SF Mono", Consolas, monospace;
+  font-size: 0.9em;
+}
+
+.msg-claude pre {
+  background: #0e0e12;
+  border-radius: 6px;
+  padding: 8px;
+  overflow-x: auto;
+  margin: 0.5em 0;
+}
+
+.msg-claude pre code {
+  background: none;
+  padding: 0;
+}
+
+.msg-claude a {
+  color: #d97757;
+}
+
+.msg-claude blockquote {
+  border-left: 2px solid #3a3a42;
+  margin: 0.4em 0;
+  padding-left: 0.8em;
+  color: #a8a5a0;
+}
+
 .msg-system {
   align-self: center;
   color: #6a6760;
   font-size: 12px;
   font-style: italic;
+  white-space: pre-wrap;
 }
 
 .chat-input-row {
@@ -209,6 +283,10 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.overlay[hidden] {
+  display: none;
 }
 
 .settings-modal {
