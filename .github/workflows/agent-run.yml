@@ -2,16 +2,11 @@ name: Agent Run (proof of concept)
 
 on:
   workflow_dispatch:
-    inputs:
-      task:
-        description: 'What should Claude do?'
-        required: true
-        default: 'Open a web browser, go to wikipedia.org, and search for "GitHub Actions". Then write a one-paragraph summary to summary.txt in the repo root.'
 
 jobs:
   run-agent:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 360
     permissions:
       contents: write
     steps:
@@ -31,18 +26,6 @@ jobs:
           websockify --web=/usr/share/novnc/ 6080 localhost:5900 &
           sleep 2
 
-      - name: Open public tunnel to the noVNC view
-        run: |
-          curl -Lo cloudflared https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64
-          chmod +x cloudflared
-          ./cloudflared tunnel --url http://localhost:6080 > tunnel.log 2>&1 &
-          sleep 8
-          URL=$(grep -o 'https://[a-zA-Z0-9.-]*\.trycloudflare\.com' tunnel.log | head -n1)
-          echo ">>> WATCH THIS RUN LIVE: $URL/vnc.html?autoconnect=true&resize=remote <<<"
-          echo "### Watch this run live" >> "$GITHUB_STEP_SUMMARY"
-          echo "$URL/vnc.html?autoconnect=true&resize=remote" >> "$GITHUB_STEP_SUMMARY"
-          echo "TUNNEL_URL=$URL" >> "$GITHUB_ENV"
-
       - name: Install Claude Code
         run: npm install -g @anthropic-ai/claude-code
 
@@ -51,21 +34,33 @@ jobs:
           npx --yes playwright install --with-deps chromium
           claude mcp add playwright -- npx '@playwright/mcp@latest'
 
-      - name: Run the agent (unattended — this is the part we're validating)
+      - name: Open public tunnels (screen view + control channel)
+        run: |
+          curl -Lo cloudflared https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64
+          chmod +x cloudflared
+          ./cloudflared tunnel --url http://localhost:6080 > vnc_tunnel.log 2>&1 &
+          ./cloudflared tunnel --url http://localhost:7777 > control_tunnel.log 2>&1 &
+          sleep 8
+          VNC_URL=$(grep -o 'https://[a-zA-Z0-9.-]*\.trycloudflare\.com' vnc_tunnel.log | head -n1)
+          CONTROL_URL=$(grep -o 'https://[a-zA-Z0-9.-]*\.trycloudflare\.com' control_tunnel.log | head -n1)
+          echo ">>> WATCH: $VNC_URL/vnc.html?autoconnect=true&resize=remote <<<"
+          echo ">>> CONTROL: $CONTROL_URL <<<"
+
+      - name: Start control server and wait (this is the persistent session)
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          CONTROL_TOKEN: ${{ secrets.CONTROL_TOKEN }}
           DISPLAY: ':99'
-        run: |
-          claude --print --dangerously-skip-permissions "${{ inputs.task }}"
+        run: node scripts/control-server.js
 
-      - name: Commit any output the agent produced
+      - name: Final safety-net commit
         run: |
           git config user.name "agent-run-bot"
           git config user.email "actions@users.noreply.github.com"
           git add -A
           if git diff --cached --quiet; then
-            echo "nothing for the agent to commit"
+            echo "nothing left to commit"
           else
-            git commit -m "Agent run output"
+            git commit -m "Agent session output"
             git push
           fi
