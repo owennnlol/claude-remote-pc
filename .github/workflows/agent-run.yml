@@ -38,6 +38,7 @@ jobs:
           ./cloudflared tunnel --url http://localhost:6080 > tunnel.log 2>&1 &
           sleep 8
           URL=$(grep -o 'https://[a-zA-Z0-9.-]*\.trycloudflare\.com' tunnel.log | head -n1)
+          echo ">>> WATCH THIS RUN LIVE: $URL/vnc.html?autoconnect=true&resize=remote <<<"
           echo "### Watch this run live" >> "$GITHUB_STEP_SUMMARY"
           echo "$URL/vnc.html?autoconnect=true&resize=remote" >> "$GITHUB_STEP_SUMMARY"
           echo "TUNNEL_URL=$URL" >> "$GITHUB_ENV"
