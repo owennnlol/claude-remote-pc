@@ -45,6 +45,14 @@ jobs:
           CONTROL_URL=$(grep -o 'https://[a-zA-Z0-9.-]*\.trycloudflare\.com' control_tunnel.log | head -n1)
           echo ">>> WATCH: $VNC_URL/vnc.html?autoconnect=true&resize=remote <<<"
           echo ">>> CONTROL: $CONTROL_URL <<<"
+          cat > session.json <<EOF
+          {"watch_url": "$VNC_URL/vnc.html?autoconnect=true&resize=remote", "control_url": "$CONTROL_URL", "started_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"}
+          EOF
+          git config user.name "agent-run-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add session.json
+          git commit -m "Session started"
+          git push
 
       - name: Start control server and wait (this is the persistent session)
         env:
