@@ -1,0 +1,60 @@
+name: Agent Run (proof of concept)
+
+on:
+  workflow_dispatch:
+    inputs:
+      task:
+        description: 'What should Claude do?'
+        required: true
+        default: 'Open a web browser, go to wikipedia.org, and search for "GitHub Actions". Then write a one-paragraph summary to summary.txt in the repo root.'
+
+jobs:
+  run-agent:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up virtual display, window manager, VNC, noVNC
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb fluxbox x11vnc novnc websockify
+          Xvfb :99 -screen 0 1280x800x24 &
+          sleep 2
+          fluxbox &
+          x11vnc -display :99 -forever -nopw -shared -rfbport 5900 &
+          websockify --web=/usr/share/novnc/ 6080 localhost:5900 &
+          sleep 2
+
+      - name: Open public tunnel to the noVNC view
+        run: |
+          curl -Lo cloudflared https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64
+          chmod +x cloudflared
+          ./cloudflared tunnel --url http://localhost:6080 > tunnel.log 2>&1 &
+          sleep 8
+          URL=$(grep -o 'https://[a-zA-Z0-9.-]*\.trycloudflare\.com' tunnel.log | head -n1)
+          echo "### Watch this run live" >> "$GITHUB_STEP_SUMMARY"
+          echo "$URL/vnc.html?autoconnect=true&resize=remote" >> "$GITHUB_STEP_SUMMARY"
+          echo "TUNNEL_URL=$URL" >> "$GITHUB_ENV"
+
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Add a browser tool so Claude can act visibly on the virtual screen
+        run: claude mcp add playwright npx '@playwright/mcp@latest' --headless=false
+
+      - name: Run the agent (unattended — this is the part we're validating)
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          DISPLAY: ':99'
+        run: |
+          claude --print --dangerously-skip-permissions "${{ inputs.task }}"
+
+      - name: Commit any output the agent produced
+        run: |
+          git config user.name "agent-run-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet || git commit -m "Agent run output"
+          git push || echo "nothing to push"
