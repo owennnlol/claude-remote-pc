@@ -3,3 +3,4 @@ tunnel.log
 vnc_tunnel.log
 control_tunnel.log
 .control_token
+app/node_modules

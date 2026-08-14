@@ -1,0 +1,13 @@
+{
+  "name": "claude-remote-pc-app",
+  "productName": "Claude Remote PC",
+  "version": "0.1.0",
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "electron": "^32.0.0"
+  }
+}
