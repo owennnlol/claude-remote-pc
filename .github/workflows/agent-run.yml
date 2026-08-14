@@ -44,7 +44,7 @@ jobs:
         run: npm install -g @anthropic-ai/claude-code
 
       - name: Add a browser tool so Claude can act visibly on the virtual screen
-        run: claude mcp add playwright npx '@playwright/mcp@latest' --headless=false
+        run: claude mcp add playwright -- npx '@playwright/mcp@latest' --headless=false
 
       - name: Run the agent (unattended — this is the part we're validating)
         env:
