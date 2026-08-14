@@ -1,2 +1,5 @@
 cloudflared
 tunnel.log
+vnc_tunnel.log
+control_tunnel.log
+.control_token
