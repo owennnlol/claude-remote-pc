@@ -17,13 +17,15 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up virtual display, window manager, VNC, noVNC
+        env:
+          VNC_PASSWORD: ${{ secrets.VNC_PASSWORD }}
         run: |
           sudo apt-get update
           sudo apt-get install -y xvfb fluxbox x11vnc novnc websockify
           Xvfb :99 -screen 0 1280x800x24 &
           sleep 2
           fluxbox &
-          x11vnc -display :99 -forever -nopw -shared -rfbport 5900 &
+          x11vnc -display :99 -forever -shared -rfbport 5900 -passwd "$VNC_PASSWORD" &
           websockify --web=/usr/share/novnc/ 6080 localhost:5900 &
           sleep 2
 

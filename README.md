@@ -22,6 +22,16 @@ watch the link.
    ```
    (paste the token when prompted)
 
+3. Pick a password for the live view and add it as a secret too (this repo
+   is public, so the tunnel link itself isn't a secret — the password is
+   what actually keeps randoms from taking control of the desktop):
+   ```
+   gh secret set VNC_PASSWORD
+   ```
+   Only the first 8 characters matter (a limit of the VNC auth protocol
+   itself), so keep it short. You'll be prompted for this same password
+   when you open the noVNC link in your browser.
+
 ## Running it
 
 ```
@@ -49,5 +59,8 @@ machine or one with real credentials/files on it.
 
 - No desktop app — this is CLI-only, triggered by hand.
 - No auth beyond the raw GitHub secret — no GitHub App, no scoped install.
-- The tunnel link has no password; anyone with it can watch the run live.
+- The tunnel link itself is still visible to anyone who can view this
+  repo's Actions logs (i.e. the public), but connecting now requires the
+  `VNC_PASSWORD` secret, so viewing/control is gated even though the URL
+  isn't secret.
 - Only tested with Claude. OpenAI/Gemini paths not built.
