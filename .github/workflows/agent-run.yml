@@ -30,6 +30,8 @@ jobs:
         run: npm install -g @anthropic-ai/claude-code
 
       - name: Add a browser tool so Claude can act visibly on the virtual screen
+        env:
+          DISPLAY: ':99'
         run: |
           npx --yes playwright install --with-deps chromium
           cat > /tmp/playwright-mcp-config.json <<'EOF'
@@ -42,7 +44,9 @@ jobs:
             }
           }
           EOF
-          claude mcp add playwright -- npx '@playwright/mcp@latest' --config /tmp/playwright-mcp-config.json
+          npx --yes @playwright/mcp@latest --port 8931 --config /tmp/playwright-mcp-config.json > /tmp/playwright-mcp.log 2>&1 &
+          sleep 5
+          claude mcp add --transport sse playwright http://localhost:8931/sse
 
       - name: Open public tunnels (screen view + control channel)
         run: |
