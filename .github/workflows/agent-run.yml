@@ -32,7 +32,17 @@ jobs:
       - name: Add a browser tool so Claude can act visibly on the virtual screen
         run: |
           npx --yes playwright install --with-deps chromium
-          claude mcp add playwright -- npx '@playwright/mcp@latest'
+          cat > /tmp/playwright-mcp-config.json <<'EOF'
+          {
+            "browser": {
+              "browserName": "chromium",
+              "launchOptions": {
+                "args": ["--disable-gpu"]
+              }
+            }
+          }
+          EOF
+          claude mcp add playwright -- npx '@playwright/mcp@latest' --config /tmp/playwright-mcp-config.json
 
       - name: Open public tunnels (screen view + control channel)
         run: |
