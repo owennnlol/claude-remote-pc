@@ -48,7 +48,7 @@ jobs:
           EOF
           npx --yes @playwright/mcp@latest --port 8931 --config /tmp/playwright-mcp-config.json > /tmp/playwright-mcp.log 2>&1 &
           sleep 5
-          claude mcp add --transport sse playwright http://localhost:8931/sse
+          claude mcp add --transport http playwright http://localhost:8931/mcp
 
       - name: Open public tunnels (screen view + control channel)
         run: |
