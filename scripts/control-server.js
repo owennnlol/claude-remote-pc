@@ -1,16 +1,71 @@
 const http = require('http');
-const { spawnSync } = require('child_process');
+const { spawn, spawnSync } = require('child_process');
+const readline = require('readline');
 
 const TOKEN = process.env.CONTROL_TOKEN;
 const PORT = 7777;
 const IDLE_TIMEOUT_MS = 20 * 60 * 1000;
 const TASK_TIMEOUT_MS = 10 * 60 * 1000;
 
-let started = false;
 let lastActivity = Date.now();
+let pendingResolve = null;
+let pendingReject = null;
+let pendingTimeout = null;
 
-function authed(req) {
-  return req.headers['authorization'] === `Bearer ${TOKEN}`;
+const claudeProc = spawn(
+  'claude',
+  [
+    '--print',
+    '--verbose',
+    '--input-format', 'stream-json',
+    '--output-format', 'stream-json',
+    '--include-partial-messages',
+    '--dangerously-skip-permissions',
+  ],
+  { env: process.env }
+);
+
+const rl = readline.createInterface({ input: claudeProc.stdout });
+
+rl.on('line', (line) => {
+  let evt;
+  try {
+    evt = JSON.parse(line);
+  } catch {
+    return;
+  }
+  if (evt.type === 'result' && pendingResolve) {
+    clearTimeout(pendingTimeout);
+    const resolve = pendingResolve;
+    pendingResolve = null;
+    pendingReject = null;
+    resolve({ text: evt.result || '', isError: !!evt.is_error });
+  }
+});
+
+claudeProc.stderr.on('data', (d) => console.error('[claude stderr]', d.toString()));
+
+claudeProc.on('exit', (code) => {
+  console.error('claude process exited unexpectedly, code:', code);
+  if (pendingReject) {
+    pendingReject(new Error('claude process exited unexpectedly'));
+  }
+  process.exit(1);
+});
+
+function runPrompt(task) {
+  return new Promise((resolve, reject) => {
+    pendingResolve = resolve;
+    pendingReject = reject;
+    pendingTimeout = setTimeout(() => {
+      pendingResolve = null;
+      pendingReject = null;
+      reject(new Error('task timed out after 10 minutes'));
+    }, TASK_TIMEOUT_MS);
+    claudeProc.stdin.write(
+      JSON.stringify({ type: 'user', message: { role: 'user', content: task } }) + '\n'
+    );
+  });
 }
 
 function commitAndPush() {
@@ -24,7 +79,12 @@ function commitAndPush() {
 
 function shutdown() {
   commitAndPush();
+  claudeProc.kill();
   process.exit(0);
+}
+
+function authed(req) {
+  return req.headers['authorization'] === `Bearer ${TOKEN}`;
 }
 
 function readBody(req) {
@@ -45,11 +105,16 @@ const server = http.createServer(async (req, res) => {
 
   if (req.method === 'GET' && req.url === '/status') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ status: 'ready', started }));
+    res.end(JSON.stringify({ status: 'ready', busy: !!pendingResolve }));
     return;
   }
 
   if (req.method === 'POST' && req.url === '/prompt') {
+    if (pendingResolve) {
+      res.writeHead(409);
+      res.end('a task is already running, wait for it to finish');
+      return;
+    }
     const body = await readBody(req);
     let task;
     try {
@@ -60,27 +125,15 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    const args = started
-      ? ['-c', '-p', '--dangerously-skip-permissions', task]
-      : ['-p', '--dangerously-skip-permissions', task];
-    started = true;
-
-    const result = spawnSync('claude', args, {
-      encoding: 'utf8',
-      maxBuffer: 20 * 1024 * 1024,
-      timeout: TASK_TIMEOUT_MS,
-      env: process.env,
-    });
-    commitAndPush();
-
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(
-      JSON.stringify({
-        stdout: result.stdout || '',
-        stderr: result.stderr || '',
-        timedOut: result.error && result.error.code === 'ETIMEDOUT',
-      })
-    );
+    try {
+      const result = await runPrompt(task);
+      commitAndPush();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ stdout: result.text, stderr: '', timedOut: false }));
+    } catch (err) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ stdout: '', stderr: err.message, timedOut: true }));
+    }
     return;
   }
 
