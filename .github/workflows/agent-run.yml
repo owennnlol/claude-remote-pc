@@ -32,6 +32,7 @@ jobs:
       - name: Add a browser tool so Claude can act visibly on the virtual screen
         env:
           DISPLAY: ':99'
+          PLAYWRIGHT_MCP_SHARED_BROWSER_CONTEXT: 'true'
         run: |
           npx --yes playwright install-deps chromium
           npx --yes @playwright/mcp@latest install-browser chromium
